@@ -122,6 +122,21 @@ jobs:
             build/CMakeFiles/**/*.log
           if-no-files-found: ignore
 
+      - name: Extract changelog for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "${{ github.ref_name }}"
+          if (-not (Test-Path CHANGELOG.md)) { throw "CHANGELOG.md not found" }
+          $content = Get-Content CHANGELOG.md -Raw
+          $pattern = "(?ms)^##\s+\[?$([regex]::Escape($tag))\]?\s+-?\s*[^\r\n]*\r?\n(.*?)(?=^##\s|\z)"
+          $m = [regex]::Match($content, $pattern)
+          if (-not $m.Success) { throw "CHANGELOG.md 中未找到段落: $tag" }
+          $m.Groups[1].Value.Trim() | Out-File -Encoding utf8 release-body.md
+          Write-Host "=== Release body ==="
+          Get-Content release-body.md
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -129,5 +144,5 @@ jobs:
           files: |
             IsaacCoyote-*.zip
             IsaacCoyote-*.zip.sha256
-          generate_release_notes: true
+          body_path: release-body.md
           fail_on_unmatched_files: true
