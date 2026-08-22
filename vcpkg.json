@@ -1,0 +1,31 @@
+{
+  "name": "isaac-coyote",
+  "version": "0.1.0",
+  "builtin-baseline": "18a4723aeb7adbbae84bcff0edf510883800f32f",
+  "dependencies": [
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.3"
+    },
+    {
+      "name": "ixwebsocket",
+      "version>=": "11.4.6"
+    },
+    {
+      "name": "imgui",
+      "version>=": "1.92.8#1",
+      "features": [
+        "opengl3-binding",
+        "win32-binding"
+      ]
+    },
+    {
+      "name": "safetyhook",
+      "version>=": "0.7.0"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.15.3"
+    }
+  ]
+}

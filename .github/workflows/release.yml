@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '18a4723aeb7adbbae84bcff0edf510883800f32f'
+          vcpkgJsonGlob: 'vcpkg.json'
+
+      - name: Configure (x86 Release)
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          cmake -S . -B build -G Ninja ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x86-windows-static ^
+            -DVCPKG_HOST_TRIPLET=x64-windows
+          if errorlevel 1 exit /b 1
+
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          cmake --build build --config Release
+          if errorlevel 1 exit /b 1
+
+      - name: Verify artifacts (x86)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (!(Test-Path build/IsaacCoyote.dll)) { throw "IsaacCoyote.dll missing" }
+          if (!(Test-Path build/IsaacCoyoteLauncher.exe)) { throw "IsaacCoyoteLauncher.exe missing" }
+          Write-Host "=== dumpbin headers ==="
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /headers build/IsaacCoyote.dll | Select-String -Pattern "machine"
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /headers build/IsaacCoyoteLauncher.exe | Select-String -Pattern "machine"
+          # Fallback: also try dumpbin from PATH
+          try { dumpbin /headers build/IsaacCoyote.dll | Select-String "machine" } catch {}
+          Get-Item build/IsaacCoyote.dll, build/IsaacCoyoteLauncher.exe | Format-Table Name, Length, LastWriteTime
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ github.ref_name }}"
+          if (-not $ver -or $ver -eq "") { $ver = "v0.1.0-dev" }
+          $zip = "IsaacCoyote-$ver-x86.zip"
+          Write-Host "Packaging $zip"
+          Compress-Archive -Path build/IsaacCoyote.dll,build/IsaacCoyoteLauncher.exe -DestinationPath $zip -Force
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+          Write-Host "SHA256: $hash"
+          Get-Item $zip, "$zip.sha256" | Format-Table Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IsaacCoyote-${{ github.ref_name }}-x86
+          path: |
+            IsaacCoyote-*.zip
+            IsaacCoyote-*.zip.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            IsaacCoyote-*.zip
+            IsaacCoyote-*.zip.sha256
+          generate_release_notes: true
+          fail_on_unmatched_files: true
