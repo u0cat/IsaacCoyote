@@ -15,29 +15,65 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~4.2.0"
+          ninjaVersion: "^1.12.1"
+
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: '18a4723aeb7adbbae84bcff0edf510883800f32f'
           vcpkgJsonGlob: 'vcpkg.json'
 
-      - name: Configure (x86 Release)
-        shell: cmd
+      - name: Setup MSVC (x86)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Diagnostics
+        shell: pwsh
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          cmake -S . -B build -G Ninja ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
-            -DVCPKG_TARGET_TRIPLET=x86-windows-static ^
+          $ErrorActionPreference = "Stop"
+          Write-Host "=== Tool versions ==="
+          cmake --version
+          ninja --version
+          Write-Host "=== Compiler ==="
+          cl 2>&1 | Select-Object -First 5
+          Write-Host "=== Env ==="
+          Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
+          Write-Host "VCPKG_INSTALLATION_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+          Write-Host "VCToolsInstallDir=$env:VCToolsInstallDir"
+          Write-Host "VSCMD_ARG_TGT_ARCH=$env:VSCMD_ARG_TGT_ARCH"
+          Get-Command cl -ErrorAction SilentlyContinue | Format-List
+          Get-Command dumpbin -ErrorAction SilentlyContinue | Format-List
+          where.exe cl 2>&1 | Write-Host
+          where.exe dumpbin 2>&1 | Write-Host
+
+      - name: Configure (x86 Release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          # toolchain via VCPKG_ROOT set by lukka/run-vcpkg; fallback to VCPKG_INSTALLATION_ROOT
+          $vcpkgRoot = $env:VCPKG_ROOT
+          if (-not $vcpkgRoot) { $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT }
+          if (-not $vcpkgRoot) { throw "VCPKG_ROOT not set" }
+          $toolchain = Join-Path $vcpkgRoot "scripts/buildsystems/vcpkg.cmake"
+          Write-Host "Using toolchain: $toolchain"
+          if (!(Test-Path $toolchain)) { throw "Toolchain not found: $toolchain" }
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
+            -DVCPKG_TARGET_TRIPLET=x86-windows-static `
             -DVCPKG_HOST_TRIPLET=x64-windows
-          if errorlevel 1 exit /b 1
+          if ($LASTEXITCODE -ne 0) { throw "cmake configure failed with $LASTEXITCODE" }
 
       - name: Build
-        shell: cmd
+        shell: pwsh
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
           cmake --build build --config Release
-          if errorlevel 1 exit /b 1
+          if ($LASTEXITCODE -ne 0) { throw "cmake build failed with $LASTEXITCODE" }
 
       - name: Verify artifacts (x86)
         shell: pwsh
@@ -46,10 +82,9 @@ jobs:
           if (!(Test-Path build/IsaacCoyote.dll)) { throw "IsaacCoyote.dll missing" }
           if (!(Test-Path build/IsaacCoyoteLauncher.exe)) { throw "IsaacCoyoteLauncher.exe missing" }
           Write-Host "=== dumpbin headers ==="
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /headers build/IsaacCoyote.dll | Select-String -Pattern "machine"
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /headers build/IsaacCoyoteLauncher.exe | Select-String -Pattern "machine"
-          # Fallback: also try dumpbin from PATH
-          try { dumpbin /headers build/IsaacCoyote.dll | Select-String "machine" } catch {}
+          # dumpbin is on PATH after msvc-dev-cmd; no hardcoded MSVC version
+          dumpbin /headers build/IsaacCoyote.dll | Select-String -Pattern "machine"
+          dumpbin /headers build/IsaacCoyoteLauncher.exe | Select-String -Pattern "machine"
           Get-Item build/IsaacCoyote.dll, build/IsaacCoyoteLauncher.exe | Format-Table Name, Length, LastWriteTime
 
       - name: Package
@@ -74,6 +109,18 @@ jobs:
             IsaacCoyote-*.zip
             IsaacCoyote-*.zip.sha256
           if-no-files-found: error
+
+      - name: Upload CMake logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-logs
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/CMakeError.log
+            build/vcpkg-manifest-install.log
+            build/CMakeFiles/**/*.log
+          if-no-files-found: ignore
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
