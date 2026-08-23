@@ -36,11 +36,10 @@ namespace app::overlay::tabs
             float kPulseTextHeight() { return ui::metrics::scale(242.0f); }
             float kRuleListWidth() { return ui::metrics::scale(224.0f); }
             float kRuleListCompactHeight() { return ui::metrics::scale(190.0f); }
-            float kPlayerIdsHeight() { return ui::metrics::scale(86.0f); }
         }
 
         const char* const kModifiers[] = {"设为", "增加", "减少", "倍乘"};
-        const char* const kScopes[] = {"当前玩家", "其他玩家", "任意玩家", "指定玩家(未开发)"};
+        const char* const kScopes[] = {"当前玩家", "其他玩家", "任意玩家", "指定玩家"};
 
         std::string trim_line(std::string value)
         {
@@ -66,10 +65,9 @@ namespace app::overlay::tabs
         void validate_player_filter(const config::PlayerFilterConfig& filter, const std::string& rule_id,
                                     std::vector<ValidationIssue>& issues)
         {
-            // Specific-player filtering (incl. explicit player IDs) is not implemented yet; such rules are dropped at compile time.
-            if (filter.scope == config::PlayerScope::Specific || !filter.player_ids.empty()) {
-                issues.push_back({rule_id, "尚未实现特定玩家过滤,请选择其他玩家范围"});
-            }
+            // Specific scope needs a selected nickname; otherwise the rule is dropped at compile time.
+            if (filter.scope == config::PlayerScope::Specific && filter.player_ids.empty())
+                issues.push_back({rule_id, "指定玩家需要先选择一名玩家"});
         }
 
         bool is_pulse_referenced(const config::PulseEffectConfig& pulse, const AppConfig& config,

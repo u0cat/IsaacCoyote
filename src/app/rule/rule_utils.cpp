@@ -37,11 +37,11 @@ namespace app::rule
             case config::PlayerScope::Self: result.scope = PlayerScope::Self; break;
             case config::PlayerScope::Others: result.scope = PlayerScope::Others; break;
             case config::PlayerScope::Any: result.scope = PlayerScope::Any; break;
-            case config::PlayerScope::Specific: return std::nullopt;
+            case config::PlayerScope::Specific: result.scope = PlayerScope::Specific; break;
         }
 
         result.player_ids.insert(filter.player_ids.begin(), filter.player_ids.end());
-        if (!result.player_ids.empty())
+        if (result.scope == PlayerScope::Specific && result.player_ids.empty())
             return std::nullopt;
         return result;
     }
@@ -51,13 +51,14 @@ namespace app::rule
         if (!context)
             return filter.scope == PlayerScope::Any;
 
-        if (!filter.player_ids.empty() && !filter.player_ids.contains(context->player_id))
-            return false;
+        if (filter.scope == PlayerScope::Specific)
+            return !context->player_name.empty() && filter.player_ids.contains(context->player_name);
 
         switch (filter.scope) {
             case PlayerScope::Self: return context->relation == PlayerRelation::Self;
             case PlayerScope::Others: return context->relation == PlayerRelation::Other;
             case PlayerScope::Any: return true;
+            case PlayerScope::Specific: break;
         }
         return false;
     }

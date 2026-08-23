@@ -35,6 +35,7 @@ namespace app::rule
         Self,
         Others,
         Any,
+        Specific,
     };
 }
 

@@ -69,6 +69,15 @@ namespace isaac_spy::constants
     inline constexpr std::string_view kPatternNetPlayManagerGetLocalPlayer =
             "568bf1e8????????85c074??8bcee8????????8bc85e";
 
+    // NetManager::GetDeviceById — __thiscall(this = devices vector, device_id);
+    // returns the Device* (0 when not found).
+    inline constexpr std::string_view kPatternNetManagerGetDeviceById =
+            "558BEC538BD933D256578B7D088B73048B032BF0C1FE0285F674??0F1F4400008B0839790C74??4283C0043BD672??";
+
+    // NetManager::FormatUserProfileName — __stdcall(low, high, string_table, max_len);
+    inline constexpr std::string_view kPatternNetManagerFormatUserProfileName =
+            "558BEC6AFF68????????64A1000000005083EC0C535657A1????????33C5508D45F464A3000000008D4D08C745EC????????E8????????8945F0";
+
     inline constexpr std::string_view kPatternPlayerManagerIsMultiPlay =
             "558bec518b01538b59??2bd8";
 
@@ -126,6 +135,7 @@ namespace isaac_spy::constants
     inline constexpr std::ptrdiff_t kOffsetPlayerCoins = 0x1368;
     inline constexpr std::ptrdiff_t kOffsetPlayerPlayerType = 0x13BC;
     inline constexpr std::ptrdiff_t kOffsetPlayerCanFly = 0x1564;
+    inline constexpr std::ptrdiff_t kOffsetPlayerDeviceId = 0x1618;
     inline constexpr std::ptrdiff_t kOffsetPlayerCollectibles = 0x16C8;
     inline constexpr std::ptrdiff_t kOffsetPlayerCollectiblesEnd = 0x16CC;
     inline constexpr std::ptrdiff_t kOffsetPlayerPocketItems = 0x17A0;
@@ -207,11 +217,23 @@ namespace isaac_spy::constants
     inline constexpr std::ptrdiff_t kOffsetManagerItemConfigManager = 0x2A404;
     inline constexpr std::ptrdiff_t kOffsetManagerEntityConfigManager = 0x2A670;
     inline constexpr std::ptrdiff_t kOffsetManagerNetPlayManager = 0x4B3D8;
+    inline constexpr std::ptrdiff_t kOffsetManagerProfileNameFormat = 0x4AE28;
     inline constexpr std::ptrdiff_t kOffsetManagerGameState = 0x08;
     // GameState (at this+0xfa4) +0x1fdec: normal continue state (died/quit mid-run -> rep+%s loaded)
     inline constexpr std::ptrdiff_t kOffsetManagerContinueState = 0x20D90;
     // GameState (at this+0xfa4) +0x1fded: rerun state (previous run won -> rep+rerunstate%d.dat loaded)
     inline constexpr std::ptrdiff_t kOffsetManagerRerunState = 0x20D91;
+
+    // ------------------------------------------------------------------
+    // NetDevice (online device descriptor)
+    // ------------------------------------------------------------------
+
+    // NetDevice: device_id at +0x0C, profile holder pointer at +0x374 (holder = [device + 0x370 + 0x4]).
+    inline constexpr std::ptrdiff_t kOffsetDeviceProfileHolder = 0x374;
+
+    // Profile holder: SteamID64 low/high at +0x08 / +0x0C.
+    inline constexpr std::ptrdiff_t kOffsetProfileSteamIdLow = 0x08;
+    inline constexpr std::ptrdiff_t kOffsetProfileSteamIdHigh = 0x0C;
 
     // ------------------------------------------------------------------
     // Room

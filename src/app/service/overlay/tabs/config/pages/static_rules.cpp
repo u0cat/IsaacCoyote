@@ -1,6 +1,7 @@
 // Created by TsCat on 2026/8/19.
 #include <algorithm>
-#include <sstream>
+#include <chrono>
+#include <cstdint>
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -8,6 +9,8 @@
 #include "app/service/overlay/tabs/config/config_tab.h"
 #include "app/service/overlay/tabs/config/config_tab_internal.h"
 #include "app/service/overlay/ui/themes.h"
+#include "isaac_spy/isaac/game.h"
+#include "isaac_spy/isaac/manager.h"
 
 using namespace app::config;
 
@@ -18,6 +21,23 @@ namespace app::overlay::tabs
     namespace
     {
         namespace ui = app::overlay::ui;
+    }
+
+    void ConfigTab::load_player_names() {
+        state_.player_names.clear();
+
+        auto* player_manager = isaac_spy::isaac::Game::get_instance().get_player_manager();
+        auto* netplay = isaac_spy::isaac::Manager::get_instance().get_netplay_manager();
+        if (!player_manager || !netplay) return;
+
+        for (auto* player : player_manager->get_player_list()) {
+            if (!player) continue;
+            const uint32_t device_id = player->get_device_id();
+            if (auto name = netplay->get_device_name(device_id); name && !name->empty()) {
+                if (std::ranges::find(state_.player_names, *name) == state_.player_names.end())
+                    state_.player_names.push_back(*name);
+            }
+        }
     }
 
     bool ConfigTab::draw_modifiers(ChannelModifiersConfig& modifiers, const char* id) {
@@ -91,18 +111,40 @@ namespace app::overlay::tabs
                 }
 
                 if (players.scope == PlayerScope::Specific) {
-                    std::string ids;
-                    for (const auto& value : players.player_ids) ids += value + "\n";
-                    ui::property_row("玩家 ID");
-                    if (ui::input_multiline("player_ids", &ids, ImVec2(-1.0f, detail::layout::kPlayerIdsHeight()))) {
-                        players.player_ids.clear();
-                        std::stringstream stream(ids);
-                        std::string line;
-                        while (std::getline(stream, line)) {
-                            line = detail::trim_line(std::move(line));
-                            if (!line.empty()) players.player_ids.push_back(std::move(line));
+                    ui::property_row("指定玩家");
+
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now >= state_.player_names_refreshed_at) {
+                        state_.player_names_refreshed_at = now + std::chrono::seconds(1);
+                        load_player_names();
+                    }
+
+                    std::string selected = players.player_ids.empty() ? std::string{} : players.player_ids.front();
+                    // Keep the configured nickname visible and clearable even when offline.
+                    if (!selected.empty() &&
+                        std::ranges::find(state_.player_names, selected) == state_.player_names.end()) {
+                        state_.player_names.insert(state_.player_names.begin(), selected);
+                    }
+
+                    ImGui::SetNextItemWidth(-1.0f);
+                    if (ImGui::BeginCombo(ui::hidden_id("player_name").c_str(),
+                                          selected.empty() ? "未选择玩家…" : selected.c_str())) {
+                        if (ImGui::Selectable("无", selected.empty())) {
+                            players.player_ids.clear();
+                            changed = true;
                         }
-                        changed = true;
+                        if (state_.player_names.empty()) {
+                            ui::muted_text("请先进入联机游戏");
+                        }
+                        for (const auto& name : state_.player_names) {
+                            const bool is_selected = name == selected;
+                            if (ImGui::Selectable(name.c_str(), is_selected)) {
+                                players.player_ids = {name};
+                                changed = true;
+                            }
+                            if (is_selected) ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
                     }
                 }
                 ImGui::EndTable();

@@ -33,6 +33,7 @@ namespace isaac_spy::isaac
         mem::MemoryRef<int>& get_coins() { return coins_; }
         mem::MemoryRef<int>& get_player_type() { return player_type_; }
         mem::MemoryRef<bool>& can_fly() { return can_fly_; }
+        mem::MemoryRef<uint32_t>& get_device_id() { return device_id_; }
 
         Player* get_twin();
         std::unordered_map<int, int> get_collectibles();
@@ -52,6 +53,7 @@ namespace isaac_spy::isaac
         mem::MemoryRef<int> coins_;
         mem::MemoryRef<int> player_type_;
         mem::MemoryRef<bool> can_fly_;
+        mem::MemoryRef<uint32_t> device_id_;
 
         uintptr_t this_ptr_;
     };

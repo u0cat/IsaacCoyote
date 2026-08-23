@@ -24,6 +24,7 @@ Player::Player(uintptr_t player_ptr)
       coins_(player_ptr + kOffsetPlayerCoins),
       player_type_(player_ptr + kOffsetPlayerPlayerType),
       can_fly_(player_ptr + kOffsetPlayerCanFly),
+      device_id_(player_ptr + kOffsetPlayerDeviceId),
       this_ptr_(player_ptr) {}
 
 Player* Player::get_twin() {

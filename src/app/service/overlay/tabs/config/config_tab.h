@@ -1,6 +1,7 @@
 #ifndef ISAACSPY_CONFIG_TAB_H
 #define ISAACSPY_CONFIG_TAB_H
 
+#include <chrono>
 #include <functional>
 #include <string>
 #include <vector>
@@ -66,6 +67,9 @@ namespace app::overlay::tabs
         std::vector<CollectibleOption> pills;
         std::vector<CollectibleOption> cards;
 
+        std::vector<std::string> player_names;
+        std::chrono::steady_clock::time_point player_names_refreshed_at{};
+
         std::vector<std::string> whitelist_entity_drafts;
         std::vector<std::string> blacklist_entity_drafts;
     };
@@ -111,6 +115,7 @@ namespace app::overlay::tabs
         void load_collectibles();
         void load_pills();
         void load_cards();
+        void load_player_names();
         void save_draft();
 
         std::string id_;

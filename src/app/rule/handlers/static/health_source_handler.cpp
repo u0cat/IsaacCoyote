@@ -2,10 +2,12 @@
 
 #include "app/rule/handlers/static/health_source_handler.h"
 
+#include <unordered_map>
 #include <unordered_set>
 
 #include "isaac_spy/isaac/game.h"
 #include "isaac_spy/isaac/manager.h"
+#include "isaac_spy/isaac/netplay_manager.h"
 
 using namespace app::rule;
 
@@ -37,6 +39,19 @@ void HealthSourceHandler::evaluate(std::vector<StaticContribution>& out) {
         return;
     }
 
+    const bool needs_names = std::ranges::any_of(rules_, [](const auto& rule)
+    {
+        return rule.players.scope == PlayerScope::Specific;
+    });
+    std::unordered_map<std::uintptr_t, std::string> name_cache;
+    const auto name_of = [&name_cache, needs_names](const std::uintptr_t player_ptr) -> std::string
+    {
+        if (!needs_names) return {};
+        auto [it, inserted] = name_cache.try_emplace(player_ptr);
+        if (inserted) it->second = isaac_spy::isaac::player_name_of(player_ptr);
+        return it->second;
+    };
+
     for (const auto& rule : rules_) {
         const auto* health = std::get_if<CompiledHealthSource>(&rule.source);
         if (!health) continue;
@@ -49,6 +64,7 @@ void HealthSourceHandler::evaluate(std::vector<StaticContribution>& out) {
             const EventContext context{
                 ptr_player_id(player_ptr),
                 player_manager->is_local_player(player_ptr) ? PlayerRelation::Self : PlayerRelation::Other,
+                name_of(player_ptr),
             };
 
             if (!player_matches(rule.players, context)) continue;

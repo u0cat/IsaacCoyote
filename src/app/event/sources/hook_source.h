@@ -4,6 +4,7 @@
 
 #ifndef ISAACCOYOTE_HOOK_SOURCE_H
 #define ISAACCOYOTE_HOOK_SOURCE_H
+#include <cstdint>
 #include <expected>
 #include <queue>
 #include <string_view>
@@ -12,6 +13,7 @@
 #include "app/event/sources/source_type.h"
 #include "app/service/log/log_service.h"
 #include "isaac_spy/isaac/game.h"
+#include "isaac_spy/isaac/netplay_manager.h"
 
 namespace app::event::sources
 {
@@ -62,9 +64,14 @@ namespace app::event::sources
                                                            : event::PlayerRelation::Other;
                 log_event(details, relation);
 
-                event::PlayerId player_id = event::ptr_player_id(details.player);
+                const std::uintptr_t player_ptr = details.player;
+                event::PlayerId player_id = event::ptr_player_id(player_ptr);
                 Event event = make_event(std::move(details));
-                event.context = event::EventContext{std::move(player_id), relation};
+                event.context = event::EventContext{
+                    std::move(player_id),
+                    relation,
+                    isaac_spy::isaac::player_name_of(player_ptr),
+                };
 
                 engine_.post(std::move(event));
             }

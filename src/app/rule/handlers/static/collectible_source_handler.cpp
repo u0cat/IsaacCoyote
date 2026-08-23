@@ -4,11 +4,13 @@
 
 #include <algorithm>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "isaac_spy/isaac/collectible.h"
 #include "isaac_spy/isaac/game.h"
 #include "isaac_spy/isaac/item_config_manager.h"
+#include "isaac_spy/isaac/netplay_manager.h"
 
 namespace app::rule
 {
@@ -138,6 +140,19 @@ namespace app::rule
             return it->second;
         };
 
+        const bool needs_names = std::ranges::any_of(rules_, [](const auto& rule)
+        {
+            return rule.players.scope == PlayerScope::Specific;
+        });
+        std::unordered_map<std::uintptr_t, std::string> name_cache;
+        const auto name_of = [&name_cache, needs_names](const std::uintptr_t player_ptr) -> std::string
+        {
+            if (!needs_names) return {};
+            auto [it, inserted] = name_cache.try_emplace(player_ptr);
+            if (inserted) it->second = isaac_spy::isaac::player_name_of(player_ptr);
+            return it->second;
+        };
+
         for (const auto& rule : rules_) {
             const auto* collectible_rule = std::get_if<CompiledCollectibleSource>(&rule.source);
             if (!collectible_rule) continue;
@@ -154,6 +169,7 @@ namespace app::rule
                     player_manager->is_local_player(player_ptr)
                         ? PlayerRelation::Self
                         : PlayerRelation::Other,
+                    name_of(player_ptr),
                 };
                 if (!player_matches(rule.players, context)) continue;
 

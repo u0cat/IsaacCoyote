@@ -24,7 +24,6 @@ namespace app::overlay::tabs::detail
         float kPulseTextHeight();
         float kRuleListWidth();
         float kRuleListCompactHeight();
-        float kPlayerIdsHeight();
     }
 
     extern const char* const kModifiers[4];

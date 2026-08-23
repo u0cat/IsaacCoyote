@@ -25,6 +25,7 @@ namespace app::event
     struct EventContext {
         PlayerId player_id;
         PlayerRelation relation = PlayerRelation::Self;
+        std::string player_name;
     };
 }
 
